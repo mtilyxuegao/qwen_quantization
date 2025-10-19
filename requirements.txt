@@ -1,0 +1,8 @@
+# core dependencies
+llmcompressor
+vllm
+sglang
+
+# management tool
+uv
+

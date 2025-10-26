@@ -76,3 +76,5 @@ checkpoints/
 *.log
 logs/
 
+# Evaluation results
+results/

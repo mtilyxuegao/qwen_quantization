@@ -1,0 +1,4 @@
+[submodule "simple_evals"]
+	path = simple_evals
+	url = https://github.com/mtilyxuegao/simple-evals.git
+	branch = gpqa

@@ -1,103 +1,150 @@
-# 系统信息收集
+# System Information
 
-## 硬件配置
+## Hardware Configuration
 
-### GPU 信息
+### GPU Information
 
-**GPU 型号：** NVIDIA A100-SXM4-80GB
-**显存容量：** 80GB (81920 MiB)
-**功耗：** 65W / 500W
-**温度：** 33°C
-**状态：** 空闲 (0% 利用率)
+**GPU Model:** NVIDIA A100-SXM4-80GB
+**Memory Capacity:** 80GB (81920 MiB)
+**GPU Count:** 8 available (**Experiment usage: 1 GPU per task**)
 
-**CUDA 版本：** 12.1
-- PyTorch CUDA 支持：已启用
-- nvcc：未在用户空间安装（HPC环境限制）
-- CUDA 运行时库：正常可用
-
----
-
-### CPU 和内存信息
-
-**CPU 型号：** Intel(R) Xeon(R) Platinum 8480+
-**CPU 核心数：** 224 核
-**总内存：** 2.0 TB
-**可用内存：** 1.9 TB
-**Swap：** 0 GB (未配置)
+**Driver and Runtime:**
+- **NVIDIA Driver:** 565.57.01
+- **CUDA Version:** 12.1
+- **cuDNN Version:** 9.1.2 (build 91002)
+- **PyTorch CUDA:** Enabled (CUDA 12.1)
+- **cuDNN Support:** Enabled
+- nvcc: Not installed in user space (HPC environment limitation)
 
 ---
 
-## 软件环境
+### CPU and Memory Information
 
-### 操作系统
-- **系统：** Linux
-- **内核版本：** 5.15.0-140-generic
-- **Shell：** /bin/bash
+**CPU Model:** Intel(R) Xeon(R) Platinum 8480+
+**Total Cores:** 224 cores (server node)
+**Experiment Usage:** 64 cores
 
-### Python 环境
-- **Python 版本：** 3.10.12
-- **虚拟环境：** venv (位于 /home/jisenli2/qwen_quantization/venv)
-
-### 关键依赖版本
-
-| 包名 | 版本 | 说明 |
-|------|------|------|
-| llmcompressor | 0.8.1 | 模型量化工具 |
-| vllm | 0.11.0 | LLM 推理引擎 |
-| sglang | 0.5.3.post3 | LLM 推理引擎 |
-| torch | 2.8.0 | PyTorch 深度学习框架 |
-| transformers | 4.57.1 | Hugging Face transformers |
-| torchao | 0.9.0 | PyTorch 量化加速库 |
-| torchaudio | 2.8.0 | PyTorch 音频处理 |
-| torchvision | 0.23.0 | PyTorch 视觉处理 |
-
-**PyTorch CUDA 版本：** 12.1
-**CUDA 可用性：** 是
-**可用 GPU 数量：** 8 个 (预计使用 1 个)
+**Memory Configuration:**
+- **Total Memory:** 2.0 TB (server node)
+- **Experiment Usage:** ~439 GB
+- **Swap:** 0 GB (not configured)
 
 ---
 
-## HPC 环境信息
+## Software Environment
 
-- **工作目录：** /home/jisenli2/qwen_quantization
-- **用户名：** jisenli2
-- **节点名称：** research-external-05
-- **可用 GPU：** NVIDIA A100 80GB (当前节点已分配)
-- **共享存储：** /data/shared/huggingface/ (团队共享模型存储)
+### Operating System
+- **System:** Ubuntu 22.04.5 LTS
+- **Kernel Version:** 5.15.0-140-generic
+- **Shell:** /bin/bash
 
----
+### Python Environment
+- **Python Version:** 3.10.12
+- **Virtual Environment:** venv (located at /home/jisenli2/qwen_quantization/venv)
 
-## 存储空间
+### Key Dependencies
 
-**存储空间状况：**
-- `/home` 分区：9.7TB 总计，8.1TB 已用，1.2TB 可用 (88% 使用率)
-- `/data` 分区：9.8TB 总计，8.4TB 已用，1.4TB 可用 (86% 使用率)
+| Package | Version | Description |
+|---------|---------|-------------|
+| **torch** | **2.8.0** | **PyTorch Deep Learning Framework (CUDA 12.1)** |
+| **transformers** | **4.57.1** | **Hugging Face Transformers** |
+| **sglang** | **0.5.3.post3** | **Performance Testing Framework** |
+| **llmcompressor** | **0.8.1** | **Model Quantization Tool** |
+| vllm | 0.11.0 | LLM Inference Engine |
+| torchao | 0.9.0 | PyTorch Quantization Acceleration Library |
+| torchaudio | 2.8.0 | PyTorch Audio Processing |
+| torchvision | 0.23.0 | PyTorch Vision Processing |
 
-**预估存储需求：**
-- 原始模型 (Qwen3-4B-Instruct-2507)：~8 GB
-- INT8 量化模型：~4-5 GB
-- 评估数据集和日志：~1-2 GB
-- **总计：** ~15 GB
-
-**下载目标：** 使用 /data 分区存储模型（空间更充裕）
-
----
-
-## 网络配置
-
-**Hugging Face 配置：**
-- 下载目标路径：`/data/jisenli2/huggingface/`
-- 本地缓存：`~/.cache/huggingface/hub/`
-- 共享模型库：`/data/shared/huggingface/hub/`
-
-**目标模型：**
-- Qwen/Qwen3-4B-Instruct-2507 (需要下载)
+**PyTorch Configuration:**
+- CUDA Version: 12.1
+- CUDA Available: ✅ Yes
+- cuDNN Enabled: ✅ Yes
+- cuDNN Version: 9.1.2
 
 ---
 
-## 日期和时间
+## HPC Environment Information
 
-- **收集日期：** 2025-10-18
-- **时区：** [待确认]
+- **Working Directory:** /home/jisenli2/qwen_quantization
+- **Username:** jisenli2
+- **Node Name:** research-external-05
+- **Available GPU:** NVIDIA A100 80GB (allocated to current node)
+- **Shared Storage:** /data/shared/huggingface/ (team shared model storage)
+
+---
+
+## Storage Space
+
+**Storage Status:**
+- `/home` partition: 9.7TB total, 8.1TB used, 1.2TB available (88% usage)
+- `/data` partition: 9.8TB total, 8.4TB used, 1.4TB available (86% usage)
+
+**Estimated Storage Requirements:**
+- Original model (Qwen3-4B-Instruct-2507): ~8 GB
+- INT8 quantized model: ~4-5 GB
+- Evaluation datasets and logs: ~1-2 GB
+- **Total:** ~15 GB
+
+**Download Target:** Use /data partition to store models (more space available)
+
+---
+
+## Network Configuration
+
+**Hugging Face Configuration:**
+- Download target path: `/data/jisenli2/huggingface/`
+- Local cache: `~/.cache/huggingface/hub/`
+- Shared model library: `/data/shared/huggingface/hub/`
+
+**Target Model:**
+- Qwen/Qwen3-4B-Instruct-2507 (needs download)
+
+---
+
+## Evaluation Framework and Configuration
+
+### Evaluation Framework
+- **Framework:** simple-evals (fork from OpenAI simple-evals)
+- **Repository:** https://github.com/mtilyxuegao/simple-evals.git
+- **Branch:** gpqa
+- **Commit:** ec4f0b1
+- **Last Update:** 2025-10-26 15:44:37 -0700
+
+### Random Seed Configuration
+Fixed random seeds are used during evaluation to ensure reproducibility:
+
+| Evaluation Task | Random Seed | Purpose |
+|----------------|-------------|---------|
+| GPQA | `Random(0)` | Option order randomization |
+| GPQA Few-shot | `Random(42)` | Few-shot example sampling |
+
+**Note:** All random seeds are fixed to ensure fully reproducible results across runs.
+
+---
+
+## Experiment Resource Configuration
+
+### Compute Node Configuration
+Experiments run on a single compute node with the following configuration:
+- **GPU:** 8 × NVIDIA A100-80GB
+- **CPU:** 64 cores
+- **Memory:** ~439 GB
+- **Scheduling System:** SLURM (HPC cluster)
+
+### Resource Usage Strategy
+- **Per Task Usage:** 1 GPU (independent execution)
+- **Parallel Capacity:** Up to 8 tasks running simultaneously
+- **Typical Scenarios:**
+  - Quantization: 1 GPU, sequential execution
+  - Evaluation: Up to 8 GPUs in parallel, testing different models
+  - Performance Testing: Up to 8 GPUs in parallel, testing different models
+
+---
+
+## Date and Time
+
+- **Collection Date:** 2025-11-01
+- **System Deployment:** 2025-10-18
+- **Last Update:** 2025-11-01
 
 

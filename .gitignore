@@ -7,6 +7,14 @@ ENV/
 # eval
 simple_eval/
 
+# Logs
+*.log
+logs/
+
+# Evaluation results
+results/
+results_prompt_ablation/
+
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -71,10 +79,3 @@ Thumbs.db
 *.safetensors
 models/
 checkpoints/
-
-# Logs
-*.log
-logs/
-
-# Evaluation results
-results/

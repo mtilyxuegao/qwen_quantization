@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-使用 sglang 后端运行 GPQA 评估（Zero-shot）
-专为 Qwen3-4B-Instruct 和 W8A16 量化模型设计
+Run GPQA evaluation using sglang backend (Zero-shot)
+Designed for Qwen3-4B-Instruct and W8A16 quantized models
 
-用法:
-    # 原始模型
+Usage:
+    # Original model
     python run_gpqa_sglang.py --model original
     
-    # 量化模型
+    # Quantized model
     python run_gpqa_sglang.py --model w8a16
     
-    # 自定义配置
+    # Custom configuration
     python run_gpqa_sglang.py \
         --model-name Qwen3-4B-Instruct-2507 \
         --base-url http://127.0.0.1:30000/v1 \
@@ -23,10 +23,10 @@ import argparse
 from pathlib import Path
 from openai import OpenAI
 
-# 添加父目录到 Python 路径
+# Add parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 导入 simple_evals 包
+# Import simple_evals packages
 from simple_evals.gpqa_eval import GPQAEval
 from simple_evals.types import SamplerBase, SamplerResponse
 from simple_evals import common
@@ -34,53 +34,79 @@ from simple_evals import common
 
 class SglangSampler(SamplerBase):
     """
-    Sglang 后端 Sampler
-    支持 OpenAI-compatible API
+    Sglang Backend Sampler
+    Supports OpenAI-compatible API
     """
     
     def __init__(
         self, 
         base_url: str, 
-        temperature: float = 0.0, 
+        temperature: float | None = None,
+        top_p: float | None = None,
+        presence_penalty: float | None = None,
         max_tokens: int = 16384,
+        seed: int = 1234,
         system_message: str = "You are a helpful assistant."
     ):
         """
         Args:
-            base_url: sglang 服务器地址，如 http://127.0.0.1:30000/v1
-            temperature: 采样温度 (0.0 = greedy)
-            max_tokens: 最大生成 token 数
-            system_message: 系统提示
+            base_url: sglang server address, e.g. http://127.0.0.1:30000/v1
+            temperature: sampling temperature (None = use model default, 0.0 = greedy)
+            top_p: nucleus sampling parameter (None = use model default)
+            presence_penalty: presence penalty parameter (None = use model default)
+            max_tokens: maximum number of tokens to generate
+            seed: random seed (for reproducibility)
+            system_message: system prompt message
         """
-        self.client = OpenAI(base_url=base_url, api_key="dummy")
+        # Increase timeout for complex questions (default 600s too short)
+        # GPQA questions + max_tokens=16k may take a long time
+        self.client = OpenAI(
+            base_url=base_url, 
+            api_key="dummy",
+            timeout=3600.0  # 60 minute timeout
+        )
         self.temperature = temperature
+        self.top_p = top_p
+        self.presence_penalty = presence_penalty
         self.max_tokens = max_tokens
+        self.seed = seed
         self.system_message = system_message
     
     def _pack_message(self, content: str, role: str):
-        """打包消息为 OpenAI 格式"""
+        """Pack message into OpenAI format"""
         return {"role": role, "content": content}
     
     def __call__(self, message_list):
         """
-        调用 sglang 后端生成响应
+        Call sglang backend to generate response
         
         Args:
-            message_list: 消息列表（不包含 system message）
+            message_list: List of messages (not including system message)
             
         Returns:
             SamplerResponse
         """
-        # 添加 system message
+        # Add system message
         messages = [self._pack_message(self.system_message, "system")] + message_list
         
-        # 调用 sglang
-        response = self.client.chat.completions.create(
-            model="default",  # sglang 忽略此参数
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens
-        )
+        # Build request parameters (only pass non-None parameters)
+        request_kwargs = {
+            "model": "default",  # sglang ignores this parameter
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "seed": self.seed
+        }
+        
+        # Only explicitly set parameters will override model defaults
+        if self.temperature is not None:
+            request_kwargs["temperature"] = self.temperature
+        if self.top_p is not None:
+            request_kwargs["top_p"] = self.top_p
+        if self.presence_penalty is not None:
+            request_kwargs["presence_penalty"] = self.presence_penalty
+        
+        # Call sglang (only use OpenAI-compatible parameters)
+        response = self.client.chat.completions.create(**request_kwargs)
         
         return SamplerResponse(
             response_text=response.choices[0].message.content,
@@ -89,15 +115,65 @@ class SglangSampler(SamplerBase):
         )
 
 
-# 预设配置
+# Preset configurations
 PRESETS = {
     "original": {
         "model_name": "Qwen3-4B-Instruct-2507",
-        "description": "原始 BF16 模型"
+        "description": "Original BF16 model"
     },
-    "w8a16": {
-        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16",
-        "description": "INT8 量化模型（权重INT8，激活FP16）"
+    # ==================== W8A16 Methods ====================
+    "w8a16_ptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-PTQ",
+        "description": "Simple PTQ W8A16 (baseline)"
+    },
+    "w8a16_gptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-GPTQ",
+        "description": "GPTQ W8A16"
+    },
+    "w8a16_awq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-AWQ",
+        "description": "AWQ W8A16"
+    },
+    "w8a16_sparse_gptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-SPARSE-GPTQ",
+        "description": "SparseGPT → GPTQ W8A16"
+    },
+    "w8a16_sparse_awq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-SPARSE-AWQ",
+        "description": "SparseGPT → AWQ W8A16"
+    },
+    "w8a16_smooth_gptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-SMOOTH-GPTQ",
+        "description": "SmoothQuant + GPTQ W8A16 (comparison)"
+    },
+    "w8a16_smooth_ptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-SMOOTH-PTQ",
+        "description": "SmoothQuant + PTQ W8A16 (complete experiment matrix)"
+    },
+    "w8a16_smooth_awq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A16-SMOOTH-AWQ",
+        "description": "SmoothQuant + AWQ W8A16 (comparison)"
+    },
+    # ==================== W8A8 Methods (Priority) ====================
+    "w8a8_smooth_gptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A8-SMOOTH-GPTQ",
+        "description": "⭐ SmoothQuant + GPTQ W8A8 (priority)"
+    },
+    "w8a8_smooth_awq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A8-SMOOTH-AWQ",
+        "description": "⭐ SmoothQuant + AWQ W8A8 (priority)"
+    },
+    "w8a8_sparse_smooth_gptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A8-SPARSE-SMOOTH-GPTQ",
+        "description": "SparseGPT → SmoothQuant + GPTQ W8A8 (memory efficient)"
+    },
+    "w8a8_smooth_ptq": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A8-SMOOTH-PTQ",
+        "description": "SmoothQuant + PTQ W8A8 (fast baseline)"
+    },
+    "w8a8_awq_smooth": {
+        "model_name": "Qwen3-4B-Instruct-2507-INT8-W8A8-AWQ-LIGHTSMOOTH",
+        "description": "AWQ + Light SmoothQuant W8A8"
     }
 }
 
@@ -166,13 +242,24 @@ def main():
         default=1,
         help="每个样本重复次数（仅当 num-examples=None 时支持 >1）"
     )
+    parser.add_argument(
+        "--n-shot",
+        type=int,
+        default=0,
+        help="Few-shot 示例数量 (0=zero-shot, 默认: 0)"
+    )
     
     # 采样参数
     parser.add_argument(
+        "--greedy",
+        action="store_true",
+        help="启用 Greedy 解码模式 (Temperature=0.0, TopP=0.8)。默认使用 Do-sample 模式 (Temperature=0.7, TopP=0.8)"
+    )
+    parser.add_argument(
         "--temperature",
         type=float,
-        default=0.0,
-        help="采样温度 (默认: 0.0 = greedy)"
+        default=None,
+        help="采样温度 (默认: greedy=True 时为 0.0, greedy=False 时为 0.7)"
     )
     parser.add_argument(
         "--max-tokens",
@@ -180,8 +267,20 @@ def main():
         default=16384,
         help="最大生成 token 数 (默认: 16384 = 16k)"
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=1234,
+        help="随机种子，用于确保结果可重复 (默认: 1234)"
+    )
     
     # 输出配置
+    parser.add_argument(
+        "--config-name",
+        type=str,
+        default=None,
+        help="可选的配置名称，用于进一步区分实验，如 'qwen_prompt', 'ablation_study' 等。不提供则自动生成基础配置名"
+    )
     parser.add_argument(
         "--output-dir",
         type=str,
@@ -190,6 +289,19 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # 处理采样参数
+    if args.greedy:
+        # Greedy 模式：显式覆盖模型默认参数
+        temperature = args.temperature if args.temperature is not None else 0.0
+        top_p = 0.8
+        presence_penalty = 0.0
+    else:
+        # Do-sample 模式（默认）：使用模型自带的默认参数（不覆盖）
+        # 模型默认: temperature=0.7, top_k=20, top_p=0.8
+        temperature = None
+        top_p = None
+        presence_penalty = None
     
     # 确定模型名称
     if args.model:
@@ -210,16 +322,43 @@ def main():
     print(f"服务器: {args.base_url}")
     print(f"变体: {args.variant}")
     print(f"样本数: {args.num_examples or 'ALL'} × {args.n_repeats} repeats")
-    sampling_mode = "Greedy" if args.temperature == 0.0 else f"Temp={args.temperature}"
-    print(f"采样: Zero-shot, {sampling_mode}, Max-Tokens={args.max_tokens}")
+    shot_mode = f"{args.n_shot}-shot" if args.n_shot > 0 else "Zero-shot"
+    
+    if args.greedy:
+        sampling_mode = "Greedy" if temperature == 0.0 else f"Greedy (Temp={temperature})"
+        sampling_detail = f"Temp={temperature}, TopP={top_p}"
+    else:
+        sampling_mode = "DoSample (使用模型默认参数)"
+        sampling_detail = "Temp=0.7, TopK=20, TopP=0.8 (模型默认)"
+    
+    print(f"采样: {shot_mode}, {sampling_mode}, Max-Tokens={args.max_tokens}, Seed={args.seed}")
+    print(f"      参数: {sampling_detail}")
+    
+    # 提前计算配置名称用于显示
+    sampling_part_preview = "greedy" if args.greedy else "dosample"
+    shot_part_preview = f"{args.n_shot}shot" if args.n_shot > 0 else "zeroshot"
+    repeat_part_preview = f"{args.n_repeats}repeat"
+    config_preview = f"{sampling_part_preview}_{shot_part_preview}_{repeat_part_preview}"
+    if args.num_examples:
+        config_preview += f"_{args.num_examples}samples"
+    if args.config_name:
+        config_preview += f"_{args.config_name}"
+        print(f"配置名称: {config_preview}")
+        print(f"          (自动: {sampling_part_preview}_{shot_part_preview}_{repeat_part_preview} + 自定义: {args.config_name})")
+    else:
+        print(f"配置名称: {config_preview} (自动生成)")
+    
     print(f"输出: {args.output_dir}/")
     print(f"{'='*70}\n")
     
     # 创建 Sampler
     sampler = SglangSampler(
         base_url=args.base_url,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens
+        temperature=temperature,
+        top_p=top_p,
+        presence_penalty=presence_penalty,
+        max_tokens=args.max_tokens,
+        seed=args.seed
     )
     
     # 测试连接
@@ -242,37 +381,117 @@ def main():
     gpqa_eval = GPQAEval(
         n_repeats=args.n_repeats,
         variant=args.variant,
-        num_examples=args.num_examples
+        num_examples=args.num_examples,
+        n_shot=args.n_shot
     )
     
     # 运行评估
     result = gpqa_eval(sampler)
     
-    # 保存结果 - 按模型名称和变体组织到子文件夹
-    # 结构: results/模型名/gpqa_变体/results.html
-    variant_dir_name = f"gpqa_{args.variant}"
-    if args.num_examples:
-        variant_dir_name += f"_{args.num_examples}samples"
+    # 自动生成基础配置名
+    # 格式: <采样模式>_<few-shot>_<n_repeat>[_自定义名称]
+    sampling_part = "greedy" if args.greedy else "dosample"
+    shot_part = f"{args.n_shot}shot" if args.n_shot > 0 else "zeroshot"
+    repeat_part = f"{args.n_repeats}repeat"  # 始终显示 repeat
     
-    result_dir = Path(args.output_dir) / model_name / variant_dir_name
+    # 基础配置名
+    auto_config_name = f"{sampling_part}_{shot_part}_{repeat_part}"
+    
+    # 如果 num_examples 被指定，也加入基础配置名
+    if args.num_examples:
+        auto_config_name += f"_{args.num_examples}samples"
+    
+    # 如果提供了 config_name，附加到自动生成的名称后面
+    if args.config_name:
+        final_config_name = f"{auto_config_name}_{args.config_name}"
+    else:
+        final_config_name = auto_config_name
+    
+    # 构建结果文件名（包含详细配置信息）
+    # 例如: results_5shots_dosample_10repeats_seed1234.json
+    filename_parts = []
+    
+    # n_shot
+    if args.n_shot > 0:
+        filename_parts.append(f"{args.n_shot}shots")
+    else:
+        filename_parts.append("0shot")
+    
+    # greedy / dosample
+    filename_parts.append(sampling_part)
+    
+    # n_repeats (始终显示)
+    filename_parts.append(f"{args.n_repeats}repeats")
+    
+    # seed (如果不是默认值1234)
+    if args.seed != 1234:
+        filename_parts.append(f"seed{args.seed}")
+    
+    # max_tokens (如果不是默认值16384)
+    if args.max_tokens != 16384:
+        filename_parts.append(f"{args.max_tokens}tokens")
+    
+    # num_examples (如果指定了)
+    if args.num_examples:
+        filename_parts.append(f"{args.num_examples}samples")
+    
+    filename_suffix = "_".join(filename_parts)
+    
+    # 保存结果 - 按模型名称、变体、最终配置名组织到子文件夹
+    # 结构: results/模型名/gpqa_变体/最终配置名/results_*.html
+    # 最终配置名 = 自动生成_[可选自定义名称]
+    variant_dir_name = f"gpqa_{args.variant}"
+    result_dir = Path(args.output_dir) / model_name / variant_dir_name / final_config_name
     result_dir.mkdir(parents=True, exist_ok=True)
     
-    html_file = result_dir / "results.html"
-    json_file = result_dir / "results.json"
+    html_file = result_dir / f"results_{filename_suffix}.html"
+    json_file = result_dir / f"results_{filename_suffix}.json"
     
     html_file.write_text(common.make_report(result))
-    json_file.write_text(json.dumps({
+    
+    # 构建配置字典
+    config_dict = {
+        "variant": args.variant,
+        "n_repeats": args.n_repeats,
+        "num_examples": args.num_examples,
+        "n_shot": args.n_shot,
+        "greedy": args.greedy,
+        "max_tokens": args.max_tokens,
+        "seed": args.seed,
+    }
+    
+    # 记录实际使用的采样参数
+    if args.greedy:
+        # Greedy 模式：显式覆盖的参数
+        config_dict.update({
+            "temperature": temperature,
+            "top_p": top_p,
+            "presence_penalty": presence_penalty,
+        })
+    else:
+        # Do-sample 模式：使用模型默认参数
+        config_dict.update({
+            "temperature": "model_default (0.7)",
+            "top_k": "model_default (20)",
+            "top_p": "model_default (0.8)",
+            "note": "使用模型自带的默认采样参数"
+        })
+    
+    # 构建完整的 JSON 输出
+    json_output = {
         "model": model_name,
+        "config_name": final_config_name,  # 最终配置名（包含自定义部分）
+        "auto_config_name": auto_config_name,  # 自动生成的基础部分
         "score": result.score,
         "metrics": result.metrics,
-        "config": {
-            "variant": args.variant,
-            "n_repeats": args.n_repeats,
-            "num_examples": args.num_examples,
-            "temperature": args.temperature,
-            "max_tokens": args.max_tokens,
-        }
-    }, indent=2))
+        "config": config_dict
+    }
+    
+    # 如果提供了自定义 config_name，也单独记录
+    if args.config_name:
+        json_output["custom_config_suffix"] = args.config_name
+    
+    json_file.write_text(json.dumps(json_output, indent=2))
     
     # 打印结果
     print(f"\n{'='*70}")
@@ -280,6 +499,9 @@ def main():
     print(f"{'='*70}")
     print(f"准确率: {result.score:.4f} ({result.score*100:.2f}%)")
     print(f"统计指标数: {len(result.metrics)} 个")
+    print(f"配置名称: {final_config_name}")
+    if args.config_name:
+        print(f"  (基础: {auto_config_name} + 自定义: {args.config_name})")
     print(f"输出目录: {result_dir}/")
     print(f"  ├─ {html_file.name}")
     print(f"  └─ {json_file.name}")

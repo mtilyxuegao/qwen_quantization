@@ -1,0 +1,36 @@
+================================================================================
+PERFORMANCE SUMMARY TABLE - SELECTED MODELS
+================================================================================
+
+Model: BF16
+Baseline
+--------------------------------------------------------------------------------
+  Average Latency:           1.3628 s
+  Average Output Throughput:  1669.06 tok/s
+  Average Overall Throughput: 7164.39 tok/s
+
+Model: W8A8
+SQ→PTQ
+--------------------------------------------------------------------------------
+  Average Latency:           1.0172 s
+  Average Output Throughput:  2065.67 tok/s
+  Average Overall Throughput: 9219.85 tok/s
+  Speedup vs Baseline:        1.24x
+
+Model: W8A8
+SQ→GPTQ
+--------------------------------------------------------------------------------
+  Average Latency:           1.0139 s
+  Average Output Throughput:  2080.46 tok/s
+  Average Overall Throughput: 9252.36 tok/s
+  Speedup vs Baseline:        1.25x
+
+Model: W8A16
+SQ→AWQ
+--------------------------------------------------------------------------------
+  Average Latency:           1.3020 s
+  Average Output Throughput:  1610.93 tok/s
+  Average Overall Throughput: 6251.94 tok/s
+  Speedup vs Baseline:        0.97x
+
+================================================================================
